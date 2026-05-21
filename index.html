@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tirage au Sort – La Providence</title>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;600;800&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0f1923;
+  --card: #1a2736;
+  --border: #2d3f54;
+  --accent: #f5a623;
+  --accent2: #e8445a;
+  --green: #2ecc8e;
+  --blue: #4e9ef5;
+  --text: #edf2f7;
+  --muted: #8a9bb0;
+  --radius: 18px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Nunito', sans-serif;
+  background: var(--bg); color: var(--text);
+  min-height: 100vh; display: flex; flex-direction: column; align-items: center;
+  padding: 16px 14px 60px;
+  background-image: radial-gradient(ellipse at 20% 0%, #1e3a5f44 0%, transparent 60%),
+                    radial-gradient(ellipse at 80% 100%, #5a1e3f33 0%, transparent 60%);
+}
+header { text-align: center; margin-bottom: 18px; }
+header h1 { font-family:'Baloo 2',cursive; font-size:1.9rem; font-weight:800; color:var(--accent); }
+header p { color:var(--muted); font-size:0.85rem; margin-top:2px; }
+
+/* TABS */
+.tabs { display:flex; gap:6px; background:var(--card); border:1px solid var(--border); border-radius:999px; padding:5px; margin-bottom:22px; }
+.tab-btn { flex:1; padding:8px 14px; border:none; border-radius:999px; font-family:'Nunito',sans-serif; font-weight:700; font-size:0.88rem; cursor:pointer; transition:background 0.2s,color 0.2s; background:none; color:var(--muted); white-space:nowrap; }
+.tab-btn.active { background:var(--accent); color:#1a1000; }
+
+.panel { display:none; width:100%; max-width:640px; flex-direction:column; align-items:center; }
+.panel.visible { display:flex; }
+
+/* ── TIRAGE ── */
+.task-bar { display:flex; align-items:center; gap:8px; background:var(--card); border:1px solid var(--border); border-radius:999px; padding:7px 7px 7px 18px; width:100%; margin-bottom:18px; }
+.task-label { font-size:0.72rem; text-transform:uppercase; letter-spacing:1px; color:var(--muted); white-space:nowrap; }
+#task-input { flex:1; background:none; border:none; color:var(--text); font-family:'Nunito',sans-serif; font-size:0.95rem; font-weight:600; outline:none; min-width:0; }
+#task-input::placeholder { color:#4a6080; }
+.task-change-btn { background:var(--accent2); color:#fff; border:none; border-radius:999px; padding:7px 13px; font-family:'Nunito',sans-serif; font-weight:700; font-size:0.8rem; cursor:pointer; white-space:nowrap; transition:transform 0.15s,background 0.2s; }
+.task-change-btn:hover { background:#c73349; transform:scale(1.04); }
+
+.counter-row { display:flex; gap:10px; margin-bottom:18px; font-size:0.83rem; color:var(--muted); }
+.counter-row span { background:var(--card); padding:4px 13px; border-radius:999px; border:1px solid var(--border); }
+.cnt-rem { color:var(--green); font-weight:700; }
+.cnt-done { color:var(--accent2); font-weight:700; }
+
+.draw-zone { display:flex; flex-direction:column; align-items:center; gap:14px; margin-bottom:22px; width:100%; max-width:340px; }
+.name-display { width:100%; min-height:118px; background:linear-gradient(135deg,#1e3356 0%,#2a1a4a 100%); border:2px solid #2d4a7a; border-radius:var(--radius); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; box-shadow:0 8px 32px #0008,inset 0 1px 0 #ffffff10; transition:border-color 0.3s; position:relative; overflow:hidden; }
+.name-display::before { content:''; position:absolute; inset:0; background:radial-gradient(ellipse at 50% 0%,#ffffff08 0%,transparent 70%); pointer-events:none; }
+.name-display.active { border-color:var(--accent); }
+.name-display.done { border-color:var(--muted); opacity:0.6; }
+.name-emoji { font-size:1.8rem; }
+#drawn-name { font-family:'Baloo 2',cursive; font-size:2.2rem; font-weight:800; text-align:center; color:var(--text); letter-spacing:-1px; padding:0 12px; }
+.name-hint { font-size:0.75rem; color:var(--muted); }
+
+#draw-btn { width:100%; padding:14px; background:linear-gradient(135deg,var(--accent) 0%,#f07000 100%); border:none; border-radius:var(--radius); font-family:'Baloo 2',cursive; font-size:1.2rem; font-weight:800; color:#1a1000; cursor:pointer; box-shadow:0 6px 24px #f5a62355; transition:transform 0.15s,box-shadow 0.15s; }
+#draw-btn:hover:not(:disabled) { transform:translateY(-2px); box-shadow:0 10px 30px #f5a62366; }
+#draw-btn:active:not(:disabled) { transform:translateY(1px); }
+#draw-btn:disabled { opacity:0.4; cursor:not-allowed; box-shadow:none; }
+
+.lists-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; width:100%; }
+.list-card { background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:12px; }
+.list-card h3 { font-family:'Baloo 2',cursive; font-size:0.78rem; font-weight:600; text-transform:uppercase; letter-spacing:1px; margin-bottom:8px; }
+.list-card.remaining h3 { color:var(--green); }
+.list-card.passed h3 { color:var(--accent2); }
+.names-list { display:flex; flex-wrap:wrap; gap:4px; }
+.name-chip { font-size:0.7rem; font-weight:600; padding:2px 8px; border-radius:999px; font-family:'Nunito',sans-serif; }
+.list-card.remaining .name-chip { background:#1a3d2e; color:var(--green); }
+.list-card.passed .name-chip { background:#3d1a22; color:#e88; text-decoration:line-through; }
+
+.reset-btn { margin-top:16px; background:none; border:1px solid var(--border); color:var(--muted); padding:7px 20px; border-radius:999px; font-family:'Nunito',sans-serif; font-size:0.8rem; cursor:pointer; transition:border-color 0.2s,color 0.2s; }
+.reset-btn:hover { border-color:var(--accent2); color:var(--accent2); }
+
+/* ── GROUPES ── */
+.group-controls { display:flex; flex-wrap:wrap; gap:10px; align-items:center; background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:14px 16px; width:100%; margin-bottom:14px; }
+.group-controls label { font-size:0.82rem; color:var(--muted); white-space:nowrap; }
+.subject-select, .size-input { background:#0f1923; border:1px solid var(--border); color:var(--text); border-radius:8px; padding:6px 10px; font-family:'Nunito',sans-serif; font-size:0.9rem; font-weight:600; outline:none; cursor:pointer; }
+.size-input { width:64px; text-align:center; }
+.gen-btn { margin-left:auto; background:linear-gradient(135deg,var(--blue) 0%,#2563eb 100%); border:none; border-radius:999px; padding:8px 20px; font-family:'Nunito',sans-serif; font-weight:700; font-size:0.88rem; color:#fff; cursor:pointer; box-shadow:0 4px 16px #4e9ef544; transition:transform 0.15s; }
+.gen-btn:hover { transform:translateY(-1px); }
+
+.legend { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:12px; font-size:0.78rem; align-self:flex-start; }
+.legend-item { display:flex; align-items:center; gap:5px; color:var(--muted); }
+.legend-dot { width:9px; height:9px; border-radius:50%; flex-shrink:0; }
+
+.no-levels-warn { background:#3d2e0a; border:1px solid #7a5a00; border-radius:12px; padding:11px 15px; font-size:0.83rem; color:var(--accent); text-align:center; margin-bottom:12px; width:100%; }
+
+.groups-grid { display:flex; flex-direction:column; gap:10px; width:100%; }
+.group-card { background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:13px; }
+.group-card-header { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+.group-num { font-family:'Baloo 2',cursive; font-size:1.05rem; font-weight:800; background:var(--accent); color:#1a1000; width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.group-members { display:flex; flex-wrap:wrap; gap:6px; }
+.member-chip { display:flex; align-items:center; gap:5px; padding:4px 10px; border-radius:999px; font-size:0.79rem; font-weight:600; }
+.level-dot { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
+.level-fort   { background:#1a3d2e; color:var(--green); }  .level-fort   .level-dot { background:var(--green); }
+.level-moyen  { background:#3d2e0a; color:var(--accent); } .level-moyen  .level-dot { background:var(--accent); }
+.level-faible { background:#3d1a22; color:#e88; }          .level-faible .level-dot { background:#e88; }
+.level-nc     { background:#1e2d3d; color:var(--muted); }  .level-nc     .level-dot { background:var(--muted); }
+
+/* ── NIVEAUX ── */
+.levels-intro { background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:13px 15px; font-size:0.83rem; color:var(--muted); width:100%; margin-bottom:12px; line-height:1.6; }
+.levels-intro strong { color:var(--text); }
+
+.levels-table { width:100%; border-collapse:collapse; margin-bottom:14px; font-size:0.83rem; }
+.levels-table th { font-size:0.72rem; text-transform:uppercase; letter-spacing:1px; color:var(--muted); padding:6px 6px; text-align:left; border-bottom:1px solid var(--border); }
+.levels-table td { padding:5px 4px; border-bottom:1px solid #1e2d3d; vertical-align:middle; }
+.levels-table tr:hover td { background:#1e2d3d55; }
+.student-name-cell { font-weight:700; font-size:0.83rem; white-space:nowrap; padding-right:8px; }
+.level-btn-group { display:flex; gap:3px; }
+.lvl-btn { padding:3px 8px; border-radius:999px; border:1px solid var(--border); font-family:'Nunito',sans-serif; font-size:0.72rem; font-weight:700; cursor:pointer; transition:all 0.12s; background:var(--bg); color:var(--muted); }
+.lvl-btn.sel-fort   { background:#1a3d2e; border-color:var(--green);  color:var(--green); }
+.lvl-btn.sel-moyen  { background:#3d2e0a; border-color:var(--accent); color:var(--accent); }
+.lvl-btn.sel-faible { background:#3d1a22; border-color:#e88; color:#e88; }
+
+.save-row { display:flex; gap:10px; flex-wrap:wrap; justify-content:center; margin-top:4px; width:100%; }
+.save-btn { background:linear-gradient(135deg,var(--green) 0%,#1a9960 100%); border:none; border-radius:999px; padding:9px 22px; font-family:'Nunito',sans-serif; font-weight:700; font-size:0.88rem; color:#0a2918; cursor:pointer; transition:transform 0.15s; }
+.save-btn:hover { transform:scale(1.03); }
+.load-btn { background:var(--card); border:1px solid var(--border); border-radius:999px; padding:9px 22px; font-family:'Nunito',sans-serif; font-weight:700; font-size:0.88rem; color:var(--text); cursor:pointer; transition:border-color 0.2s; }
+.load-btn:hover { border-color:var(--blue); }
+
+/* Animations */
+@keyframes popIn { 0%{transform:scale(0.7);opacity:0} 60%{transform:scale(1.08)} 100%{transform:scale(1);opacity:1} }
+@keyframes shake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-8px)} 40%{transform:translateX(8px)} 60%{transform:translateX(-5px)} 80%{transform:translateX(5px)} }
+.pop { animation:popIn 0.4s cubic-bezier(.17,.67,.4,1.3) forwards; }
+.rolling { animation:shake 0.06s linear infinite; }
+.confetti-piece { position:fixed; border-radius:2px; pointer-events:none; z-index:999; animation:confettiFall linear forwards; }
+@keyframes confettiFall { 0%{transform:translateY(-20px) rotate(0deg);opacity:1} 100%{transform:translateY(100vh) rotate(720deg);opacity:0} }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🎲 Tirage au Sort</h1>
+  <p>École La Providence – P5 · 27 élèves</p>
+</header>
+
+<div class="tabs">
+  <button class="tab-btn active" onclick="switchTab('tirage')">🎯 Tirage</button>
+  <button class="tab-btn" onclick="switchTab('groupes')">👥 Groupes</button>
+  <button class="tab-btn" onclick="switchTab('niveaux')">📊 Niveaux</button>
+</div>
+
+<!-- ══ TIRAGE ══ -->
+<div class="panel visible" id="panel-tirage">
+  <div class="task-bar">
+    <span class="task-label">Tâche</span>
+    <input type="text" id="task-input" placeholder="Ex : Lire le texte…" value="Lire le texte">
+    <button class="task-change-btn" onclick="changeTask()">↺ Nouvelle tâche</button>
+  </div>
+  <div class="counter-row">
+    <span>Restants : <span class="cnt-rem" id="cnt-rem">27</span></span>
+    <span>Passés : <span class="cnt-done" id="cnt-done">0</span></span>
+  </div>
+  <div class="draw-zone">
+    <div class="name-display" id="name-display">
+      <div class="name-emoji">🎯</div>
+      <div id="drawn-name">Appuie !</div>
+      <div class="name-hint" id="name-hint">Prêt à tirer</div>
+    </div>
+    <button id="draw-btn" onclick="draw()">✨ Tirer au sort</button>
+  </div>
+  <div class="lists-row">
+    <div class="list-card remaining"><h3>✅ Restants</h3><div class="names-list" id="list-remaining"></div></div>
+    <div class="list-card passed"><h3>☑️ Passés</h3><div class="names-list" id="list-passed"></div></div>
+  </div>
+  <button class="reset-btn" onclick="resetTask()">🔄 Réinitialiser cette tâche</button>
+</div>
+
+<!-- ══ GROUPES ══ -->
+<div class="panel" id="panel-groupes">
+  <div id="no-levels-warn" class="no-levels-warn" style="display:none">
+    ⚠️ Aucun niveau encodé. Va dans <strong>Niveaux</strong> pour les saisir — les groupes seront aléatoires sinon.
+  </div>
+  <div class="group-controls">
+    <label>Matière :</label>
+    <select class="subject-select" id="group-subject">
+      <option value="francais">📖 Français</option>
+      <option value="maths">🔢 Maths</option>
+      <option value="eveil">🌍 Éveil</option>
+    </select>
+    <label style="margin-left:6px">Taille :</label>
+    <input type="number" class="size-input" id="group-size" value="4" min="2" max="9">
+    <button class="gen-btn" onclick="generateGroups()">⚡ Générer</button>
+  </div>
+  <div class="legend">
+    <span class="legend-item"><span class="legend-dot" style="background:var(--green)"></span>Fort</span>
+    <span class="legend-item"><span class="legend-dot" style="background:var(--accent)"></span>Moyen</span>
+    <span class="legend-item"><span class="legend-dot" style="background:#e88"></span>Faible</span>
+    <span class="legend-item"><span class="legend-dot" style="background:var(--muted)"></span>Non classé</span>
+  </div>
+  <div class="groups-grid" id="groups-grid">
+    <p style="color:var(--muted);font-size:0.88rem;text-align:center;padding:20px">
+      Choisis la matière et la taille, puis clique sur ⚡ Générer.
+    </p>
+  </div>
+</div>
+
+<!-- ══ NIVEAUX ══ -->
+<div class="panel" id="panel-niveaux">
+  <div class="levels-intro">
+    <strong>Encode les niveaux</strong> selon les commentaires de bulletin de chaque élève.<br>
+    Clique une fois pour sélectionner, à nouveau pour désélectionner.<br>
+    <strong>Exporte en JSON</strong> pour sauvegarder et réimporter à la prochaine session.
+  </div>
+  <table class="levels-table">
+    <thead>
+      <tr>
+        <th>Élève</th>
+        <th>📖 Français</th>
+        <th>🔢 Maths</th>
+        <th>🌍 Éveil</th>
+      </tr>
+    </thead>
+    <tbody id="levels-body"></tbody>
+  </table>
+  <div class="save-row">
+    <button class="save-btn" onclick="exportLevels()">💾 Exporter JSON</button>
+    <button class="load-btn" onclick="document.getElementById('import-file').click()">📂 Importer JSON</button>
+    <input type="file" id="import-file" accept=".json" style="display:none" onchange="importLevels(event)">
+  </div>
+</div>
+
+<script>
+const ALL_NAMES = [
+  "Jeremy","Wissam","Ismaël","Yassir","Mélanie Alexandra",
+  "Salimatou","Stepan","Adam","Maja","Mathéo","Nael",
+  "Alyia","Maria","Kim Odette","Noah","David","Abdelkader",
+  "Victoria","Nada","Dua","Laura","Toby","Loujain",
+  "Sofiane","Malik","Bryan","Filip"
+];
+
+// Niveaux : null = non classé
+let levels = {};
+ALL_NAMES.forEach(n => levels[n] = { francais: null, maths: null, eveil: null });
+
+let remaining = [...ALL_NAMES];
+let passed = [];
+let isRolling = false;
+
+// ── TABS ──
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach((b, i) => {
+    b.classList.toggle('active', ['tirage','groupes','niveaux'][i] === tab);
+  });
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('visible'));
+  document.getElementById('panel-' + tab).classList.add('visible');
+  if (tab === 'niveaux') renderLevelsTable();
+  if (tab === 'groupes') checkLevelsWarning();
+}
+
+// ── TIRAGE ──
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function renderTirage() {
+  document.getElementById('cnt-rem').textContent = remaining.length;
+  document.getElementById('cnt-done').textContent = passed.length;
+  document.getElementById('list-remaining').innerHTML = [...remaining].sort().map(n => `<span class="name-chip">${n}</span>`).join('');
+  document.getElementById('list-passed').innerHTML = [...passed].sort().map(n => `<span class="name-chip">${n}</span>`).join('');
+  document.getElementById('draw-btn').disabled = remaining.length === 0;
+}
+
+function draw() {
+  if (remaining.length === 0 || isRolling) return;
+  isRolling = true;
+  const btn = document.getElementById('draw-btn');
+  btn.disabled = true;
+  const nameEl = document.getElementById('drawn-name');
+  const display = document.getElementById('name-display');
+  const hint = document.getElementById('name-hint');
+  display.className = 'name-display active';
+  nameEl.classList.remove('pop');
+  let ticks = 0;
+  const maxTicks = 18 + Math.floor(Math.random() * 10);
+  const pool = shuffle(remaining);
+  let poolIdx = 0;
+  const interval = setInterval(() => {
+    nameEl.textContent = pool[poolIdx % pool.length];
+    nameEl.classList.add('rolling');
+    poolIdx++; ticks++;
+    if (ticks >= maxTicks) {
+      clearInterval(interval);
+      nameEl.classList.remove('rolling');
+      const idx = Math.floor(Math.random() * remaining.length);
+      const chosen = remaining[idx];
+      remaining.splice(idx, 1);
+      passed.push(chosen);
+      nameEl.textContent = chosen;
+      void nameEl.offsetWidth;
+      nameEl.classList.add('pop');
+      hint.textContent = remaining.length === 0
+        ? '🎉 Tous les élèves sont passés !'
+        : `Plus que ${remaining.length} élève${remaining.length > 1 ? 's' : ''}`;
+      if (remaining.length === 0) display.className = 'name-display done';
+      spawnConfetti();
+      renderTirage();
+      isRolling = false;
+      if (remaining.length > 0) btn.disabled = false;
+    }
+  }, 80 - Math.floor(ticks * 2));
+}
+
+function changeTask() {
+  const inp = document.getElementById('task-input');
+  const v = prompt('Nouvelle tâche :', inp.value);
+  if (v !== null && v.trim()) inp.value = v.trim();
+  resetTask();
+}
+
+function resetTask() {
+  remaining = [...ALL_NAMES]; passed = [];
+  const nameEl = document.getElementById('drawn-name');
+  nameEl.textContent = 'Appuie !';
+  nameEl.classList.remove('pop','rolling');
+  document.getElementById('name-display').className = 'name-display';
+  document.getElementById('name-hint').textContent = 'Prêt à tirer';
+  document.getElementById('draw-btn').disabled = false;
+  renderTirage();
+}
+
+function spawnConfetti() {
+  const colors = ['#f5a623','#e8445a','#2ecc8e','#4ecdc4','#fff','#a78bfa'];
+  for (let i = 0; i < 26; i++) {
+    const el = document.createElement('div');
+    el.className = 'confetti-piece';
+    el.style.cssText = `left:${20+Math.random()*60}vw;top:-20px;background:${colors[Math.floor(Math.random()*colors.length)]};width:${6+Math.random()*9}px;height:${6+Math.random()*9}px;animation-duration:${1.2+Math.random()*1.5}s;animation-delay:${Math.random()*0.4}s`;
+    document.body.appendChild(el);
+    el.addEventListener('animationend', () => el.remove());
+  }
+}
+
+// ── NIVEAUX ──
+const SUBJECT_OPTIONS = { francais:['fort','moyen','faible'], maths:['fort','moyen','faible'], eveil:['fort','faible'] };
+const LVL_LABELS = { fort:'Fort', moyen:'Moyen', faible:'Faible' };
+
+function renderLevelsTable() {
+  document.getElementById('levels-body').innerHTML = [...ALL_NAMES].sort().map(name => {
+    const cols = ['francais','maths','eveil'].map(sub => {
+      const btns = SUBJECT_OPTIONS[sub].map(lvl => {
+        const sel = levels[name][sub] === lvl ? `sel-${lvl}` : '';
+        return `<button class="lvl-btn ${sel}" onclick="setLevel('${name}','${sub}','${lvl}')">${LVL_LABELS[lvl]}</button>`;
+      }).join('');
+      return `<td><div class="level-btn-group">${btns}</div></td>`;
+    }).join('');
+    return `<tr><td class="student-name-cell">${name}</td>${cols}</tr>`;
+  }).join('');
+}
+
+function setLevel(name, subject, lvl) {
+  levels[name][subject] = levels[name][subject] === lvl ? null : lvl;
+  renderLevelsTable();
+}
+
+function exportLevels() {
+  const blob = new Blob([JSON.stringify(levels, null, 2)], { type:'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'niveaux_p5.json'; a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importLevels(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      ALL_NAMES.forEach(n => { if (data[n]) levels[n] = { ...levels[n], ...data[n] }; });
+      renderLevelsTable();
+      alert('✅ Niveaux importés !');
+    } catch { alert('❌ Fichier JSON invalide.'); }
+  };
+  reader.readAsText(file);
+  event.target.value = '';
+}
+
+// ── GROUPES ──
+function checkLevelsWarning() {
+  const hasAny = ALL_NAMES.some(n => levels[n].francais || levels[n].maths || levels[n].eveil);
+  document.getElementById('no-levels-warn').style.display = hasAny ? 'none' : 'block';
+}
+
+function generateGroups() {
+  const subject = document.getElementById('group-subject').value;
+  const size = Math.max(2, Math.min(9, parseInt(document.getElementById('group-size').value) || 4));
+
+  // Séparer par niveau et mélanger chaque bucket
+  const buckets = { fort:[], moyen:[], faible:[], nc:[] };
+  shuffle(ALL_NAMES).forEach(n => {
+    const lvl = levels[n][subject];
+    if (lvl === 'fort') buckets.fort.push(n);
+    else if (lvl === 'moyen') buckets.moyen.push(n);
+    else if (lvl === 'faible') buckets.faible.push(n);
+    else buckets.nc.push(n);
+  });
+
+  const nbGroups = Math.ceil(ALL_NAMES.length / size);
+  const groups = Array.from({ length: nbGroups }, () => []);
+
+  // Distribution en round-robin fort/faible/moyen/nc pour mélanger les niveaux
+  const order = interleaveArrays(buckets.fort, buckets.faible, buckets.moyen, buckets.nc);
+  order.forEach((name, i) => groups[i % nbGroups].push(name));
+
+  renderGroups(groups, subject);
+}
+
+function interleaveArrays(...arrays) {
+  const result = [];
+  const max = Math.max(...arrays.map(a => a.length));
+  for (let i = 0; i < max; i++) {
+    arrays.forEach(arr => { if (i < arr.length) result.push(arr[i]); });
+  }
+  return result;
+}
+
+function renderGroups(groups, subject) {
+  const icons = { francais:'📖', maths:'🔢', eveil:'🌍' };
+  document.getElementById('groups-grid').innerHTML = groups.filter(g => g.length).map((g, gi) => {
+    const members = g.map(name => {
+      const lvl = levels[name][subject] || 'nc';
+      return `<span class="member-chip level-${lvl}"><span class="level-dot"></span>${name}</span>`;
+    }).join('');
+    return `<div class="group-card">
+      <div class="group-card-header">
+        <div class="group-num">${gi+1}</div>
+        <span style="color:var(--muted);font-size:0.8rem">${g.length} élève${g.length>1?'s':''} · ${icons[subject]}</span>
+      </div>
+      <div class="group-members">${members}</div>
+    </div>`;
+  }).join('');
+}
+
+// Init
+renderTirage();
+</script>
+</body>
+</html>
