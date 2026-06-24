@@ -225,6 +225,12 @@ header p { color:var(--muted); font-size:0.85rem; margin-top:2px; }
     </div>
   </div>
 
+  <div style="margin-bottom:12px;width:100%">
+    <label style="font-size:0.8rem;color:#8a9bb0;display:block;margin-bottom:6px">📥 Importer les niveaux automatiquement depuis ton bulletin :</label>
+    <input type="file" id="bulletin-import" accept=".json" style="display:none" onchange="importFromBulletin(this)">
+    <button onclick="document.getElementById('bulletin-import').click()" style="background:#2ecc8e;color:#0f1923;border:none;border-radius:10px;padding:9px 18px;font-weight:700;font-size:0.88rem;cursor:pointer;width:100%">📊 Importer depuis bulletin.json</button>
+    <div id="import-status" style="font-size:0.78rem;color:#8a9bb0;margin-top:5px;text-align:center"></div>
+  </div>
   <div class="levels-header">
     <div class="levels-intro" style="margin-bottom:0;flex:1">
       <strong>Encode les niveaux</strong> selon les bulletins. Les modifications sont sauvegardées automatiquement.
@@ -383,6 +389,93 @@ function scheduleSave() {
   saveTimer = setTimeout(saveToBin, 1500);
 }
 
+// ── IMPORT DEPUIS BULLETIN ──
+function importFromBulletin(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const data = JSON.parse(e.target.result);
+      const moyennes = {};
+
+      // Calculer moyennes FR et MATHS pour chaque élève
+      Object.keys(data).forEach(key => {
+        const s = data[key];
+        const prenom = key.split('__')[2].split('_')[0];
+
+        // Moy Français
+        function pool(items, max) {
+          const valid = (items||[]).filter(i => typeof i.pts === 'number' && i.max > 0);
+          if (!valid.length) return null;
+          return valid.reduce((sum,i) => sum + i.pts/i.max*max, 0) / valid.length;
+        }
+        const dictees = pool(s.fr.se.dictees, 10);
+        const gramm   = pool(s.fr.se.grammaire, 10);
+        const analyse = pool(s.fr.se.analyse, 10);
+        const conj    = pool(s.fr.se.conjugaison, 10);
+        const voc     = pool(s.fr.se.vocabulaire, 10);
+        const lecture = pool(s.fr.sl, 20);
+        const ecoute  = pool(s.fr.sec, 10);
+        const frParts = [dictees,gramm,analyse,conj,voc,lecture,ecoute].filter(v=>v!==null);
+        const frMoy   = frParts.length ? frParts.reduce((a,b)=>a+b,0)/frParts.length*10 : null;
+
+        // Moy Maths
+        const nombres  = pool(s.math.nop.nombres, 20);
+        const ops      = pool(s.math.nop.operations, 30);
+        const grand    = pool(s.math.grandeurs, 20);
+        const sol      = pool(s.math.solides, 20);
+        const trait    = pool(s.math.traitement, 10);
+        const maParts  = [nombres,ops,grand,sol,trait].filter(v=>v!==null);
+        const maMoy    = maParts.length ? maParts.reduce((a,b)=>a+b,0)/maParts.length*100/16 : null;
+
+        // Moy Éveil
+        const hist  = pool(s.eveil.histoire, 10);
+        const geo   = pool(s.eveil.geo, 10);
+        const sci   = pool(s.eveil.sciences, 10);
+        const evParts = [hist,geo,sci].filter(v=>v!==null);
+        const evMoy = evParts.length ? evParts.reduce((a,b)=>a+b,0)/evParts.length*10 : null;
+
+        moyennes[prenom] = { fr: frMoy, ma: maMoy, ev: evMoy };
+      });
+
+      // Calculer seuils fort/faible dynamiquement
+      function classify(val, allVals) {
+        if (val === null) return null;
+        const sorted = allVals.filter(v=>v!==null).sort((a,b)=>a-b);
+        const q1 = sorted[Math.floor(sorted.length*0.33)];
+        const q2 = sorted[Math.floor(sorted.length*0.66)];
+        if (val >= q2) return 'fort';
+        if (val <= q1) return 'faible';
+        return 'moyen';
+      }
+
+      const frVals = Object.values(moyennes).map(m=>m.fr);
+      const maVals = Object.values(moyennes).map(m=>m.ma);
+      const evVals = Object.values(moyennes).map(m=>m.ev);
+
+      let updated = 0;
+      Object.keys(moyennes).forEach(prenom => {
+        if (levels[prenom] !== undefined) {
+          const m = moyennes[prenom];
+          levels[prenom].francais = classify(m.fr, frVals);
+          levels[prenom].maths    = classify(m.ma, maVals);
+          levels[prenom].eveil    = classify(m.ev, evVals) === 'moyen' ? null : classify(m.ev, evVals);
+          updated++;
+        }
+      });
+
+      renderLevelsTable();
+      scheduleSave();
+      document.getElementById('import-status').textContent = '✅ ' + updated + ' élèves importés avec succès !';
+      input.value = '';
+    } catch(err) {
+      document.getElementById('import-status').textContent = '❌ Erreur : fichier invalide.';
+    }
+  };
+  reader.readAsText(file);
+}
+
 // ── TABS ──
 function switchTab(tab) {
   document.querySelectorAll('.tab-btn').forEach((b,i) => {
@@ -510,18 +603,33 @@ function checkLevelsWarning() {
 function generateGroups() {
   const subject = document.getElementById('group-subject').value;
   const size = Math.max(2, Math.min(9, parseInt(document.getElementById('group-size').value)||4));
-  const buckets = { fort:[], moyen:[], faible:[], nc:[] };
+
+  // Séparer par niveau (mélangés aléatoirement dans chaque bucket)
+  const fort = [], moyen = [], faible = [], nc = [];
   shuffle(ALL_NAMES).forEach(n => {
     const lvl = levels[n][subject];
-    if (lvl==='fort') buckets.fort.push(n);
-    else if (lvl==='moyen') buckets.moyen.push(n);
-    else if (lvl==='faible') buckets.faible.push(n);
-    else buckets.nc.push(n);
+    if (lvl==='fort') fort.push(n);
+    else if (lvl==='moyen') moyen.push(n);
+    else if (lvl==='faible') faible.push(n);
+    else nc.push(n);
   });
+
   const nbGroups = Math.ceil(ALL_NAMES.length / size);
   const groups = Array.from({length:nbGroups}, ()=>[]);
-  const order = interleaveArrays(buckets.fort, buckets.faible, buckets.moyen, buckets.nc);
-  order.forEach((name,i) => groups[i%nbGroups].push(name));
+
+  // ÉTAPE 1 : 1 fort par groupe max (round-robin)
+  fort.forEach((name, i) => groups[i % nbGroups].push(name));
+
+  // ÉTAPE 2 : 1 faible par groupe, décalé pour ne pas toujours être avec le même fort
+  const offset = Math.floor(nbGroups / 2);
+  faible.forEach((name, i) => groups[(i + offset) % nbGroups].push(name));
+
+  // ÉTAPE 3 : moyen puis nc dans les groupes les moins remplis en priorité
+  [...moyen, ...nc].forEach(name => {
+    const target = groups.reduce((min, g, i) => g.length < groups[min].length ? i : min, 0);
+    groups[target].push(name);
+  });
+
   renderGroups(groups, subject);
 }
 
